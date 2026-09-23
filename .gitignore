@@ -1,0 +1,11 @@
+[Bb]in/
+[Oo]bj/
+/Saku Overclock.Overlay/bin/
+/Saku Overclock.Overlay/obj/
+/Overlay/bin
+/Overlay/obj
+/packages/
+/.idea/
+/.git/
+riderModule.iml
+/_ReSharper.Caches/
