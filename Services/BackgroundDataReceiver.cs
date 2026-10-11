@@ -1,0 +1,259 @@
+﻿using System.IO.MemoryMappedFiles;
+using System.Runtime.CompilerServices;
+using Microsoft.Extensions.Logging;
+using Saku_Overclock.Overlay.Contracts;
+using Saku_Overclock.Shared.Models;
+
+namespace Saku_Overclock.Overlay.Services;
+
+public class BackgroundDataReceiver(ILogger<BackgroundDataReceiver> logger) : IBackgroundDataReceiver, IDisposable
+{
+    private CancellationTokenSource? _cts;
+    private readonly SensorsInformation _sensorsInformation = new();
+    public event Action<SensorsInformation>? Updated;
+    
+    private MemoryMappedFile? _mmf;
+    private MemoryMappedViewAccessor? _accessor;
+    private bool _isMemoryInitialized;
+    private bool _isStaticDataInitialized; // Parse static strings only once
+    
+    private readonly Lock _sync = new();
+    private volatile bool _isPaused;
+    private bool _isRunning;
+    private bool _disposed;
+    
+    private double _lastRamBusy = -1;
+    private double _lastRamTotal = -1;
+    private string _lastRamUsageString = string.Empty;
+
+    public void Start()
+    {
+        lock (_sync)
+        {
+            if (_disposed) throw new ObjectDisposedException(nameof(BackgroundDataReceiver));
+
+            _isPaused = false;
+
+            if (_isRunning) return;
+
+            _sensorsInformation.CpuTemperaturePerCore = new double[32];
+            _sensorsInformation.CpuFrequencyPerCore = new double[32];
+            _sensorsInformation.CpuVoltagePerCore = new double[32];
+            _sensorsInformation.CpuPowerPerCore = new double[32];
+
+            _cts?.Dispose();
+            _cts = new CancellationTokenSource();
+            _isRunning = true;
+
+            _ = Task.Run(() => ReadLoopAsync(_cts.Token), _cts.Token);
+        }
+    }
+
+    public void Stop()
+    {
+        lock (_sync) _isPaused = true;
+    }
+
+    private async Task ReadLoopAsync(CancellationToken cancellationToken)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                if (_isPaused)
+                {
+                    await Task.Delay(100, cancellationToken);
+                    continue;
+                }
+                
+                if (!_isMemoryInitialized) InitializeMemory();
+
+                if (_isMemoryInitialized && TryReadSensors(out var sharedData))
+                {
+                    MapDataToModel(ref sharedData);
+                    Updated?.Invoke(_sensorsInformation);
+                }
+            }
+            catch (FileNotFoundException)
+            {
+                _isMemoryInitialized = false;
+                _isStaticDataInitialized = false;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError("Error reading shared memory: {ex}", ex);
+                _isMemoryInitialized = false;
+                _isStaticDataInitialized = false;
+            }
+
+            try
+            {
+                await Task.Delay(300, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
+
+    private void InitializeMemory()
+    {
+        if (_accessor != null) return;
+        
+        _mmf = MemoryMappedFile.OpenExisting(@"Global\SakuOverclock_Sensors", MemoryMappedFileRights.Read);
+        var size = Unsafe.SizeOf<SensorsInformationShared>();
+        _accessor = _mmf.CreateViewAccessor(0, size, MemoryMappedFileAccess.Read);
+        _isMemoryInitialized = true;
+    }
+
+    private bool TryReadSensors(out SensorsInformationShared localCopy)
+    {
+        localCopy = default;
+        if (_accessor == null) return false;
+
+        int startIteration;
+        do
+        {
+            startIteration = _accessor.ReadInt32(0);
+            if (startIteration % 2 != 0) return false; 
+            
+            _accessor.Read(0, out localCopy);
+            
+            if (startIteration != localCopy.IterationEnd)
+            {
+                Thread.Yield(); 
+            }
+
+        } while (startIteration != localCopy.IterationEnd);
+
+        return true;
+    }
+
+    private void MapDataToModel(ref SensorsInformationShared data)
+    {
+        // Dyn data
+        _sensorsInformation.CpuStapmLimit = data.CpuStapmLimit;
+        _sensorsInformation.CpuStapmValue = data.CpuStapmValue;
+        _sensorsInformation.CpuFastLimit = data.CpuFastLimit;
+        _sensorsInformation.CpuFastValue = data.CpuFastValue;
+        _sensorsInformation.CpuSlowLimit = data.CpuSlowLimit;
+        _sensorsInformation.CpuSlowValue = data.CpuSlowValue;
+        _sensorsInformation.ApuSlowLimit = data.ApuSlowLimit;
+        _sensorsInformation.ApuSlowValue = data.ApuSlowValue;
+        
+        _sensorsInformation.VrmTdcValue = data.VrmTdcValue;
+        _sensorsInformation.VrmTdcLimit = data.VrmTdcLimit;
+        _sensorsInformation.VrmEdcValue = data.VrmEdcValue;
+        _sensorsInformation.VrmEdcLimit = data.VrmEdcLimit;
+        _sensorsInformation.VrmPsiValue = data.VrmPsiValue;
+        _sensorsInformation.VrmPsiSocValue = data.VrmPsiSocValue;
+        
+        _sensorsInformation.SocTdcValue = data.SocTdcValue;
+        _sensorsInformation.SocTdcLimit = data.SocTdcLimit;
+        _sensorsInformation.SocEdcValue = data.SocEdcValue;
+        _sensorsInformation.SocEdcLimit = data.SocEdcLimit;
+        
+        _sensorsInformation.CpuTempValue = data.CpuTempValue;
+        _sensorsInformation.CpuTempLimit = data.CpuTempLimit;
+        _sensorsInformation.ApuTempValue = data.ApuTempValue;
+        _sensorsInformation.ApuTempLimit = data.ApuTempLimit;
+        _sensorsInformation.DgpuTempValue = data.DgpuTempValue;
+        _sensorsInformation.DgpuTempLimit = data.DgpuTempLimit;
+        
+        _sensorsInformation.CpuStapmTimeValue = data.CpuStapmTimeValue;
+        _sensorsInformation.CpuSlowTimeValue = data.CpuSlowTimeValue;
+        _sensorsInformation.CpuUsage = data.CpuUsage;
+
+        _sensorsInformation.ApuFrequency = data.ApuFrequency;
+        _sensorsInformation.ApuVoltage = data.ApuVoltage;
+        _sensorsInformation.MemFrequency = data.MemFrequency;
+        _sensorsInformation.FabricFrequency = data.FabricFrequency;
+        _sensorsInformation.SocPower = data.SocPower;
+        _sensorsInformation.SocVoltage = data.SocVoltage;
+        _sensorsInformation.CpuFrequency = data.CpuFrequency;
+        _sensorsInformation.CpuVoltage = data.CpuVoltage;
+
+        _sensorsInformation.BatteryUnavailable = data.BatteryUnavailable;
+        _sensorsInformation.BatteryPercent = data.BatteryPercent;
+        _sensorsInformation.BatteryState = data.BatteryState;
+        _sensorsInformation.BatteryChargeRate = data.BatteryChargeRate;
+        _sensorsInformation.BatteryLifeTime = data.BatteryLifeTime;
+
+        _sensorsInformation.RamTotal = data.RamTotal;
+        _sensorsInformation.RamBusy = data.RamBusy;
+        _sensorsInformation.RamUsagePercent = data.RamUsagePercent;
+        
+        if (Math.Abs(_lastRamBusy - data.RamBusy) > 0.01f || Math.Abs(_lastRamTotal - data.RamTotal) > 0.01f)
+        {
+            _lastRamBusy = data.RamBusy;
+            _lastRamTotal = data.RamTotal;
+            _lastRamUsageString = $"{data.RamUsagePercent}%\n{data.RamBusy:F1}/{data.RamTotal:F1}GB";
+        }
+        _sensorsInformation.RamUsage = _lastRamUsageString;
+
+        _sensorsInformation.IsNvidiaGpuAvailable = data.IsNvidiaGpuAvailable;
+        _sensorsInformation.NvidiaVramFrequency = data.NvidiaVramFrequency;
+        _sensorsInformation.NvidiaGpuUsage = data.NvidiaGpuUsage;
+        _sensorsInformation.NvidiaGpuFrequency = data.NvidiaGpuFrequency;
+        _sensorsInformation.NvidiaGpuTemperature = data.NvidiaGpuTemperature;
+
+        // Arrays
+        for (var i = 0; i < 32; i++)
+        {
+            _sensorsInformation.CpuFrequencyPerCore![i] = data.CpuFrequencyPerCore[i];
+            _sensorsInformation.CpuVoltagePerCore![i] = data.CpuVoltagePerCore[i];
+            _sensorsInformation.CpuPowerPerCore![i] = data.CpuPowerPerCore[i];
+            _sensorsInformation.CpuTemperaturePerCore![i] = data.CpuTemperaturePerCore[i];
+        }
+
+        // Static data
+        if (_isStaticDataInitialized) return;
+
+        _sensorsInformation.CpuFamily = ParseSafeString16(data.CpuCodeName);
+        _sensorsInformation.BatteryName = ParseSafeString32(data.BatteryName);
+        _sensorsInformation.BatteryHealth = ParseSafeString16(data.BatteryHealth);
+        _sensorsInformation.BatteryCycles = ParseSafeString32(data.BatteryCycles);
+        _sensorsInformation.BatteryCapacity = ParseSafeString32(data.BatteryCapacity);
+        _sensorsInformation.NvidiaDriverVersion = ParseSafeString16(data.NvidiaDriverVersion);
+        _sensorsInformation.NvidiaVramSize = ParseSafeString16(data.NvidiaVramSize);
+        _sensorsInformation.NvidiaVramType = ParseSafeString16(data.NvidiaVramType);
+        _sensorsInformation.NvidiaVramWidth = ParseSafeString16(data.NvidiaVramWidth);
+
+        _isStaticDataInitialized = true;
+    }
+
+    private static string ParseSafeString16(ReadOnlySpan<char> span)
+    {
+        var nullIndex = span.IndexOf('\0');
+        return new string(nullIndex == -1 ? span : span[..nullIndex]);
+    }
+
+    private static string ParseSafeString32(ReadOnlySpan<char> span)
+    {
+        var nullIndex = span.IndexOf('\0');
+        return new string(nullIndex == -1 ? span : span[..nullIndex]);
+    }
+
+    public void Dispose()
+    {
+        lock (_sync)
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            _isPaused = true;
+
+            _cts?.Cancel();
+            _cts?.Dispose();
+            _cts = null;
+
+            _accessor?.Dispose();
+            _accessor = null;
+
+            _mmf?.Dispose();
+            _mmf = null;
+        }
+    }
+}
