@@ -255,7 +255,7 @@ internal static unsafe partial class Win32
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool DeleteDc(nint hdc);
 
-    [LibraryImport("gdi32.dll")]
+    [LibraryImport("gdi32.dll", EntryPoint = "CreateDIBSection")]
     public static partial nint CreateDibSection(nint hdc, in Bitmapinfoheader bmi, uint usage, out nint bits,
         nint section, uint offset);
 
