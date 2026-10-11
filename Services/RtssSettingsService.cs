@@ -6,7 +6,7 @@ using Saku_Overclock.Shared.Models;
 
 namespace Saku_Overclock.Overlay.Services;
 
-public class RtssSettingsService(IpcConnectionService ipc, ICpuGateService cpuService, ILogger<RtssSettingsService> logger)
+public class RtssSettingsService(IpcConnectionService ipc)
     : SimpleIpcSettingsBase<RtssSettings>(ipc, "RtssSettings", IpcJsonContext.Default.RtssSettings, new())
         , IRtssSettingsService
 {
