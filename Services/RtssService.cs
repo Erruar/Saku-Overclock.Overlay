@@ -8,7 +8,7 @@ using Saku_Overclock.Shared.Models;
 
 namespace Saku_Overclock.Overlay.Services;
 
-public partial class RtssService(IRtssSettingsService settings, ICpuGateService cpuService, ILogger<RtssService> logger) : IRtssService
+public partial class RtssService(IRtssSettingsService settings, ICpuGateService cpuService, IApplyerGateService applyer, ILogger<RtssService> logger) : IRtssService
 {
     private bool _allowUpdate = true;
     private bool _isRtssAvailable = true;
@@ -21,13 +21,40 @@ public partial class RtssService(IRtssSettingsService settings, ICpuGateService 
     private string _appliedPreset = string.Empty;
     private int? _coreCount;
 
-    public void Enable() => _allowUpdate = true;
+    public void Enable()
+    {
+        if (_allowUpdate) return;
+        _allowUpdate = true;
+        applyer.PresetChanged += OnPresetChanged;
+        _ = LoadInitialPresetAsync();
+    } 
     
     public void Disable()
     {
+        if (!_allowUpdate) return;
+        applyer.PresetChanged -= OnPresetChanged;
         RtssHandler.ResetOsdText();
         _isTemplateCreated = false;
         _allowUpdate = false;
+    }
+    
+    private void OnPresetChanged(Preset preset)
+    {
+        _appliedPreset = preset.PresetName;
+    }
+    
+    private async Task LoadInitialPresetAsync()
+    {
+        try
+        {
+            var name = await applyer.GetAppliedPreset();
+            if (!string.IsNullOrEmpty(name))
+                _appliedPreset = name;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to load initial preset");
+        }
     }
     
     private void UpdateTemplateCache(string? editorText)
@@ -71,7 +98,6 @@ public partial class RtssService(IRtssSettingsService settings, ICpuGateService 
                 _isTemplateCreated = true;
             }
             
-            _appliedPreset = /*appliedPreset ??*/ string.Empty; // TODO: implement current preset name in Rtss overlay
             _coreCount = (int)cpuService.Cores;
 
             if (string.IsNullOrEmpty(_cachedEditorText))

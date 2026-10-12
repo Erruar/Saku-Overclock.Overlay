@@ -74,6 +74,12 @@ public partial class CoreGatewayService : IApplyerGateService
         var json = await _ipc.SendCommandAsync("Apply_SwitchNextPreset");
         return JsonSerializer.Deserialize(json, IpcJsonContext.Default.PresetId);
     }
+    
+    public async Task<string?> GetAppliedPreset()
+    {
+        var json = await _ipc.SendCommandAsync("Apply_GetSelectedPresetName");
+        return JsonSerializer.Deserialize(json, IpcJsonContext.Default.String);
+    }
 
     public event Action<Preset>? PresetChanged;
     public event Action<List<ApplyResult>>? OnSettingsApplied;
