@@ -8,7 +8,7 @@ namespace Saku_Overclock.Overlay.Helpers;
 public abstract class Localization
 {
     private static readonly bool IsEnglish =
-        !CultureInfo.InstalledUICulture.Name.StartsWith("ru", StringComparison.OrdinalIgnoreCase);
+        Win32.GetUserDefaultUILanguage() != 0x419;
 
     private static readonly Localization Active = IsEnglish
         ? new EnUsLocalization()

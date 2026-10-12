@@ -20,6 +20,8 @@
         <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
         <UseNativeHttpHandler>false</UseNativeHttpHandler>
         <ApplicationManifest>app.manifest</ApplicationManifest>
+        <IlcGenerateMstatFile>true</IlcGenerateMstatFile>
+        <IlcGenerateDgmlFile>true</IlcGenerateDgmlFile>
     </PropertyGroup>
 
     <ItemGroup>
