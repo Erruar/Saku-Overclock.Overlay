@@ -74,7 +74,7 @@ internal static partial class Gdip
     [LibraryImport(Dll)] public static partial int GdipGetImageGraphicsContext(nint image, out nint graphics);
     [LibraryImport(Dll)] public static partial int GdipDisposeImage(nint image);
     [LibraryImport(Dll)] public static partial int GdipDeleteGraphics(nint graphics);
-    [LibraryImport(Dll)] public static partial int GdipCreateHiconFromBitmap(nint bitmap, out nint hicon);
+    [LibraryImport(Dll, EntryPoint = "GdipCreateHICONFromBitmap")] public static partial int GdipCreateHiconFromBitmap(nint bitmap, out nint hicon);
     [LibraryImport(Dll)] public static partial int GdipSetSmoothingMode(nint graphics, int mode);
     [LibraryImport(Dll)] public static partial int GdipSetTextRenderingHint(nint graphics, int hint);
     [LibraryImport(Dll)] public static partial int GdipGraphicsClear(nint graphics, uint argb);

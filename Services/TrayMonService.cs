@@ -513,7 +513,7 @@ public sealed unsafe class TrayMonService(
     /// <summary>
     ///     Placeholder icon with no value yet. Returns icon handle or 0
     /// </summary>
-    private static nint CreateIconFast(NiIconsElements element)
+    private nint CreateIconFast(NiIconsElements element)
     {
         nint bitmap = 0, g = 0, brush = 0, textBrush = 0, family = 0, font = 0;
 
@@ -536,8 +536,10 @@ public sealed unsafe class TrayMonService(
             Gdip.GdipCreateHiconFromBitmap(bitmap, out var hIcon);
             return hIcon;
         }
-        catch
+        catch (Exception ex)
         {
+            logger.LogError(ex, "CreateIconFast failed for color={Color} opacity={Opacity}",
+                element.Color, element.BgOpacity);
             return 0;
         }
         finally
