@@ -19,6 +19,7 @@
         <BuiltInComInteropSupport>false</BuiltInComInteropSupport>
         <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
         <UseNativeHttpHandler>false</UseNativeHttpHandler>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
     </PropertyGroup>
 
     <ItemGroup>
