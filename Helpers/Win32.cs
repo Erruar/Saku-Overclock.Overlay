@@ -251,7 +251,7 @@ internal static unsafe partial class Win32
     [LibraryImport("gdi32.dll")]
     public static partial nint CreateCompatibleDC(nint hdc);
 
-    [LibraryImport("gdi32.dll")]
+    [LibraryImport("gdi32.dll", EntryPoint = "DeleteDC")]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool DeleteDc(nint hdc);
 

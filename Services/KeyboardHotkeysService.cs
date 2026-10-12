@@ -4,7 +4,7 @@ using Saku_Overclock.Overlay.Helpers;
 
 namespace Saku_Overclock.Overlay.Services;
 
-public partial class KeyboardHotkeysService(ILogger<KeyboardHotkeysService> logger)
+public sealed class KeyboardHotkeysService(IUiThread ui, ILogger<KeyboardHotkeysService> logger)
     : IKeyboardHotkeysService
 {
     private bool _enabled;
@@ -12,18 +12,8 @@ public partial class KeyboardHotkeysService(ILogger<KeyboardHotkeysService> logg
     private const int HkCustom = 1;
     private const int HkPremade = 2;
     private const int HkRtss = 3;
-    
-    /// <summary>
-    ///     Virtual keys Win32 (subset).
-    /// </summary>
-    internal enum VirtualKey : uint
-    {
-        W = 0x57,
-        P = 0x50,
-        R = 0x52
-    }
 
-    private HotkeyWindow? _sink;
+    private enum VirtualKey : uint { W = 0x57, P = 0x50, R = 0x52 }
 
     public event Action? NextPresetPressed;
     public event Action? ToggleRtssPressed;
@@ -32,55 +22,46 @@ public partial class KeyboardHotkeysService(ILogger<KeyboardHotkeysService> logg
     {
         if (_enabled) return;
 
-        _sink = new HotkeyWindow();
-        _sink.HotkeyPressed += OnHotkeyPressed;
-
-        // Ctrl+Alt+W / Ctrl+Alt+P / Ctrl+Alt+R
         const uint mods = Win32.ModControl | Win32.ModAlt | Win32.ModNorepeat;
 
-        var ok = true;
-        ok &= Win32.RegisterHotKey(_sink.Handle, HkCustom,  mods, (uint)VirtualKey.W);
-        ok &= Win32.RegisterHotKey(_sink.Handle, HkPremade, mods, (uint)VirtualKey.P);
-        ok &= Win32.RegisterHotKey(_sink.Handle, HkRtss,    mods, (uint)VirtualKey.R);
+        Register(HkCustom,  mods, VirtualKey.W);
+        Register(HkPremade, mods, VirtualKey.P);
+        Register(HkRtss,    mods, VirtualKey.R);
 
-        if (!ok)
-        {
-            logger.LogWarning(
-                "One of hotkeys already \"in use\" (Win32 error {err})",
-                System.Runtime.InteropServices.Marshal.GetLastWin32Error());
-        }
-
+        ui.MessageReceived += OnMessage;
         _enabled = true;
     }
 
     public void Disable()
     {
-        if (!_enabled || _sink is null) return;
+        if (!_enabled) return;
 
-        Win32.UnregisterHotKey(_sink.Handle, HkCustom);
-        Win32.UnregisterHotKey(_sink.Handle, HkPremade);
-        Win32.UnregisterHotKey(_sink.Handle, HkRtss);
-
-        _sink.HotkeyPressed -= OnHotkeyPressed;
-        _sink.Dispose();
-        _sink = null;
+        ui.MessageReceived -= OnMessage;
+        Win32.UnregisterHotKey(ui.Handle, HkCustom);
+        Win32.UnregisterHotKey(ui.Handle, HkPremade);
+        Win32.UnregisterHotKey(ui.Handle, HkRtss);
 
         _enabled = false;
     }
 
-    private void OnHotkeyPressed(int id)
+    private void Register(int id, uint mods, VirtualKey key)
     {
+        if (!Win32.RegisterHotKey(ui.Handle, id, mods, (uint)key))
+            logger.LogWarning("Hotkey Ctrl+Alt+{Key} is already in use (Win32 error {Err})",
+                key, System.Runtime.InteropServices.Marshal.GetLastPInvokeError());
+    }
+
+    private void OnMessage(uint msg, nuint wParam, nint lParam)
+    {
+        if (msg != Win32.WmHotkey) return;
+
         try
         {
-            switch (id)
+            switch ((int)wParam)
             {
                 case HkPremade:
-                case HkCustom:
-                    NextPresetPressed?.Invoke();
-                    break;
-                case HkRtss:
-                    ToggleRtssPressed?.Invoke();
-                    break;
+                case HkCustom: NextPresetPressed?.Invoke(); break;
+                case HkRtss:   ToggleRtssPressed?.Invoke(); break;
             }
         }
         catch (Exception ex)
@@ -89,9 +70,5 @@ public partial class KeyboardHotkeysService(ILogger<KeyboardHotkeysService> logg
         }
     }
 
-    public void Dispose()
-    {
-        Disable();
-        GC.SuppressFinalize(this);
-    }
+    public void Dispose() { Disable(); GC.SuppressFinalize(this); }
 }
