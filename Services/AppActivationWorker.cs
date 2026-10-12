@@ -138,7 +138,12 @@ public sealed class AppActivationWorker(
         {
             var preset = await applyer.SwitchNextPreset();
             if (preset is { } p)
-                ui.Post(() => toast.Show(p.PresetName, p.PresetIcon, p.PresetDesc));
+            {
+                var presetName = p.PresetName.Contains("Preset_") ? p.PresetName.GetLocalized() : p.PresetName;
+                var presetDesc = p.PresetDesc?.Contains("Preset_") == true ? p.PresetDesc?.GetLocalized() : p.PresetDesc;
+                ui.Post(() => toast.Show(presetName, p.PresetIcon, presetDesc));
+            }
+                
         }
         catch (Exception ex)
         {
