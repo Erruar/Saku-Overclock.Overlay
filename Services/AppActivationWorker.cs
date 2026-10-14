@@ -53,8 +53,7 @@ public sealed class AppActivationWorker(
 
         // 5. Settings changed
         // TODO: add settings changed IPC messages
-        /*settings.Changed += () => ui.Post(ApplyFeatures);
-        niIcons.Changed += () => ui.Post(niIcons.Rebuild);*/
+        /*niIcons.Changed += () => ui.Post(niIcons.Rebuild);*/
 
         // 6. Lifecycle and IPC
         ipc.Connected += () => _ = LoadAsync();
@@ -161,6 +160,11 @@ public sealed class AppActivationWorker(
 
     private void OnIpcEvent(string name, string payload)
     {
-        if (name == "Overlay_Exit") lifetime.StopApplication();
+        switch (name)
+        {
+            case "Overlay_Exit": lifetime.StopApplication(); break;
+            case "AppSettingsChanged": ui.Post(ApplyFeatures); break;
+            case "Rtss_UpdateRequired": rtss.RefreshSettings(); break;
+        }
     }
 }

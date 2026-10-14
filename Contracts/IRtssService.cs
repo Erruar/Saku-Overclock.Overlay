@@ -15,6 +15,11 @@ public interface IRtssService
     void Disable();
 
     /// <summary>
+    ///     Fast refresh settings if changed
+    /// </summary>
+    void RefreshSettings();
+
+    /// <summary>
     ///     Update text on icon
     /// </summary>
     void UpdateRtss(SensorsInformation sensorsInformation);

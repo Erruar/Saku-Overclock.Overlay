@@ -38,6 +38,12 @@ public partial class RtssService(IRtssSettingsService settings, ICpuGateService 
         _allowUpdate = false;
     }
     
+    public void RefreshSettings()
+    { 
+        _isTemplateCreated = false;
+        _cachedEditorText = string.Empty;
+    }
+    
     private void OnPresetChanged(Preset preset)
     {
         _appliedPreset = preset.PresetName;
@@ -230,14 +236,13 @@ public partial class RtssService(IRtssSettingsService settings, ICpuGateService 
             if (replacementLength > 0)
             {
                 outputPos += replacementLength;
-                current = remaining[(endDollarIndex + 2)..];
             }
             else
             {
                 placeholder.CopyTo(output[outputPos..]);
                 outputPos += placeholder.Length;
-                current = remaining[(endDollarIndex + 2)..];
             }
+            current = remaining[(endDollarIndex + 2)..];
         }
 
         return outputPos;
@@ -291,6 +296,10 @@ public partial class RtssService(IRtssSettingsService settings, ICpuGateService 
         if (string.IsNullOrEmpty(_appliedPreset)) return 0;
 
         var written = 0;
+        
+        // Hardcoded premade preset names
+        if (_appliedPreset == "Preset_SmartPreset") _appliedPreset = "Smart mode";
+        if (_appliedPreset == "Preset_PowerfulPreset") _appliedPreset = "Powerful";
         foreach (var c in _appliedPreset)
         {
             var transliterated = GetTransliteration(c);
