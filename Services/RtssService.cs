@@ -27,6 +27,9 @@ public partial class RtssService(IRtssSettingsService settings, ICpuGateService 
         _allowUpdate = true;
         applyer.PresetChanged += OnPresetChanged;
         _ = LoadInitialPresetAsync();
+        
+        // Initial core count, on Pre-Ryzen always use CU instead of cores
+        _coreCount = cpuService.GetCodenameGeneration() != CodenameGeneration.Fp4 ? (int)cpuService.Cores : (int)cpuService.Cores > 1 ? (int)cpuService.Cores / 2 : (int)cpuService.Cores;
     } 
     
     public void Disable()
@@ -103,8 +106,6 @@ public partial class RtssService(IRtssSettingsService settings, ICpuGateService 
                 UpdateTemplateCache(settings.AdvancedCodeEditor);
                 _isTemplateCreated = true;
             }
-            
-            _coreCount = (int)cpuService.Cores;
 
             if (string.IsNullOrEmpty(_cachedEditorText))
             {
