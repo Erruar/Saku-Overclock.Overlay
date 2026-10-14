@@ -29,8 +29,8 @@ public partial class CoreGatewayService : IDisposable
     {
         switch (name)
         {
-            case "PresetApplied": OnPresetApplied(payload); break;
-            case "PresetChanged": OnPresetChanged(payload); break;
+            case "Apply_PresetApplied": OnPresetApplied(payload); break;
+            case "Apply_PresetChanged": OnPresetChanged(payload); break;
         }
     }
 
