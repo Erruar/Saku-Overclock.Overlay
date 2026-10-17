@@ -20,6 +20,7 @@
         <MetadataUpdaterSupport>false</MetadataUpdaterSupport>
         <UseNativeHttpHandler>false</UseNativeHttpHandler>
         <ApplicationManifest>app.manifest</ApplicationManifest>
+        <ApplicationIcon>..\Saku Overclock\Assets\WindowIcon.ico</ApplicationIcon>
     </PropertyGroup>
 
     <ItemGroup>

@@ -37,6 +37,7 @@ public static class App
         builder.Services.AddSingleton<IKeyboardHotkeysService, KeyboardHotkeysService>();
         builder.Services.AddSingleton<IPresetToastService, PresetToastService>();
         builder.Services.AddSingleton<ITrayMonService, TrayMonService>();
+        builder.Services.AddSingleton<IBalloonService, BalloonService>();
 
         // UI-thread
         builder.Services.AddHostedService<UiThreadWorker>();

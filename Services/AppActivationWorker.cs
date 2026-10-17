@@ -21,6 +21,7 @@ public sealed class AppActivationWorker(
     IBackgroundDataReceiver sensors,
     IKeyboardHotkeysService hotkeys,
     IPresetToastService toast,
+    IBalloonService balloon,
     IHostApplicationLifetime lifetime,
     ILogger<AppActivationWorker> logger)
     : IHostedService
@@ -51,17 +52,13 @@ public sealed class AppActivationWorker(
         hotkeys.NextPresetPressed += () => _ = SwitchNextPresetAsync();
         hotkeys.ToggleRtssPressed += ToggleRtss;
 
-        // 5. Settings changed
-        // TODO: add settings changed IPC messages
-        /*niIcons.Changed += () => ui.Post(niIcons.Rebuild);*/
-
-        // 6. Lifecycle and IPC
+        // 5. Lifecycle and IPC
         ipc.Connected += () => _ = LoadAsync();
         ipc.Disconnected += () => ui.Post(DisableAll);
         ipc.OnEvent += OnIpcEvent;
         ui.SessionEnding += lifetime.StopApplication;
 
-        // 7. IPC connection
+        // 6. IPC connection
         ipc.EnsureConnection();
 
         return Task.CompletedTask;
@@ -129,6 +126,7 @@ public sealed class AppActivationWorker(
         trayMon.Disable();
         rtss.Disable();
         toast.Hide();
+        balloon.Dismiss();
     }
 
     private async Task SwitchNextPresetAsync()
@@ -165,6 +163,10 @@ public sealed class AppActivationWorker(
             case "Overlay_Exit": lifetime.StopApplication(); break;
             case "AppSettingsChanged": ui.Post(ApplyFeatures); break;
             case "Rtss_UpdateRequired": rtss.RefreshSettings(); break;
+            case "Apply_SystemCrashedNotification": ui.Post(() => balloon.Show(
+                "System crash found",
+                "Latest settings were not applied. Click on notification to apply settings",
+                () => _ = ipc.SendCommandAsync("Apply_ApplyStartupSettings"))); break;
         }
     }
 }
