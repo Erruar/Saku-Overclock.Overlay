@@ -136,12 +136,6 @@ public class AppSettingsService : IAppSettingsService, IDisposable
         get { lock (_lock) return _cache.BatteryPreset; }
         set { lock (_lock) _cache.BatteryPreset = value; ScheduleSave(); }
     }
-
-    public bool AppFirstRun
-    {
-        get { lock (_lock) return _cache.AppFirstRun; }
-        set { lock (_lock) _cache.AppFirstRun = value; ScheduleSave(); }
-    }
     
     public bool EnableSafeguards
     {
