@@ -35,7 +35,6 @@
       <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
       <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.12" />
       <PackageReference Include="System.Drawing.Common" Version="9.0.1" />
-      <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="10.0.14" />
     </ItemGroup>
 
     <ItemGroup>
